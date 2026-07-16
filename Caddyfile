@@ -1,0 +1,10 @@
+# ==============================================
+# N8N Reverse Proxy
+# ==============================================
+n8n.your domain {
+    reverse_proxy n8n:5678
+}
+
+portainer.your domain {
+    reverse_proxy portainer:9000
+}

@@ -18,3 +18,6 @@ echo "=== Safe cleanup done ==="
 
 echo "If you want to remove ALL unused images/volumes, run:"
 echo "docker system prune -a"
+
+
+##Alternatively you can use the portainer UI to delete unwanted containers

@@ -1,0 +1,13 @@
+cd ~/n8n
+nano docker-compose.yml
+
+update the VERSION_NO by editing the version number in the .yml file
+
+""""n8n:
+    image: n8nio/n8n:VERSION_NO
+    container_name: n8n
+""""
+
+sudo docker compose pull n8n
+sudo docker compose down
+sudo docker compose up -d

@@ -1,30 +1,49 @@
+version: "3.8"
+
 services:
+  # ==============================================
+  # N8N - Workflow Automation Engine
+  # ==============================================
   n8n:
     image: n8nio/n8n:latest
     container_name: n8n
     restart: always
     ports:
       - "5678:5678"
+    env_file:
+      - .env
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=strongpassword
-      - N8N_HOST=yourdomain.com
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - WEBHOOK_URL=https://yourdomain.com/
-      - GENERIC_TIMEZONE=Africa/Nairobi
-      - NODE_ENV=production
-      - DB_TYPE=sqlite
-      - DB_SQLITE_VACUUM_ON_STARTUP=true
-      - N8N_TRUSTED_PROXIES=loopback,linklocal,uniquelocal
-      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
-      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - NODE_ENV=${NODE_ENV}
+      - DB_TYPE=${DB_TYPE}
+      - DB_SQLITE_VACUUM_ON_STARTUP=${DB_SQLITE_VACUUM_ON_STARTUP}
+      - N8N_TRUSTED_PROXIES=${N8N_TRUSTED_PROXIES}
+      - N8N_DEFAULT_BINARY_DATA_MODE=${N8N_DEFAULT_BINARY_DATA_MODE}
+      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=${N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE}
     volumes:
       - ./n8n_data:/home/node/.n8n
     networks:
       - n8n-network
+    depends_on:
+      - caddy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==============================================
+  # Caddy - Reverse Proxy & HTTPS
+  # ==============================================
   caddy:
     image: caddy:latest
     container_name: caddy
@@ -38,6 +57,64 @@ services:
       - ./caddy_config:/config
     networks:
       - n8n-network
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==============================================
+  # Portainer - Docker Container Management
+  # ==============================================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    ports:
+      - "9000:9000"
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./portainer_data:/data
+    networks:
+      - n8n-network
+    environment:
+      - PORTAINER_ADMIN_PASSWORD=${PORTAINER_ADMIN_PASSWORD}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==============================================
+  # Watchtower - Automatic Container Updates
+  # ==============================================
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - n8n-network
+    environment:
+      # Cleanup old images after updates
+      - WATCHTOWER_CLEANUP=true
+      # Check for updates every 7 days (604800 seconds)
+      - WATCHTOWER_POLL_INTERVAL=604800
+      # Only update containers with watchtower labels enabled
+      - WATCHTOWER_LABEL_ENABLE=true
+      # Include containers by default
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      # Don't pull images if they haven't changed
+      - WATCHTOWER_NO_PULL=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/update"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   n8n-network:
